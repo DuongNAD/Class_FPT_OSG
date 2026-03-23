@@ -1,0 +1,9 @@
+{
+    "data_min": [
+        12.0
+    ],
+    "data_max": [
+        99.0
+    ],
+    "target_idx": 0
+}
