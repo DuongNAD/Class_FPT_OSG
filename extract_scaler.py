@@ -15,4 +15,4 @@ scaler_params = {
 with open('scaler_config.json', 'w') as f:
     json.dump(scaler_params, f, indent=4)
 
-print("Nàng thơ đã trích xuất thành công! File scaler_config.json đã sẵn sàng.")
+print("Đã trích xuất thành công! File scaler_config.json đã sẵn sàng.")

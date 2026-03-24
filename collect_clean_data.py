@@ -42,7 +42,7 @@ def get_snapshot():
         row[f'proc_{idx}_vms'] = proc['memory_info'].vms if proc['memory_info'] else 0
         row[f'proc_{idx}_cpu'] = proc['cpu_percent'] or 0.0
         
-    # Đảm bảo đủ 10 tiến trình (nếu máy đang chạy ít tiến trình thì điền số 0)
+    # Đảm bảo đủ 10 tiến trình
     for i in range(len(processes), 10):
         idx = i + 1
         row[f'proc_{idx}_name'] = 'N/A'
@@ -55,7 +55,6 @@ def get_snapshot():
 print(f"Đang thu thập dữ liệu SẠCH (Cứ 5s lưu 1 dòng) vào: {OUTPUT_FILE}")
 print("Vui lòng mở thật nhiều Tab để RAM vượt 90%, sau đó đóng bớt Tab để AI học được chu kỳ lên xuống tự nhiên!")
 
-# Tạo file và Header
 first_snapshot = get_snapshot()
 headers = list(first_snapshot.keys())
 
@@ -63,7 +62,7 @@ with open(OUTPUT_FILE, mode='w', newline='') as f:
     writer = csv.DictWriter(f, fieldnames=headers)
     writer.writeheader()
 
-# Vòng lặp thu thập (Nhấn Ctrl+C để dừng)
+# Vòng lặp thu thập
 try:
     while True:
         snap = get_snapshot()

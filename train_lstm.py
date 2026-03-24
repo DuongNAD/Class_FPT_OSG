@@ -33,7 +33,7 @@ model.add(LSTM(units=16, return_sequences=False))
 model.add(Dropout(0.2))
 
 # Lớp đầu ra (Output Layer): 1 nơ-ron duy nhất dự đoán tỷ lệ % RAM
-model.add(Dense(units=1, activation='linear')) # linear vì đã scale 0-1, cũng có thể dùng sigmoid
+model.add(Dense(units=1, activation='linear'))
 
 # 3. Model Compilation
 # Optimizer Adam phổ biến, Loss là Mean Squared Error (sai số bình phương trung bình)

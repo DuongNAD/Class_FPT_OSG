@@ -3,6 +3,8 @@ import time
 import psutil
 import json
 import signal
+import subprocess
+import platform
 import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
@@ -44,7 +46,6 @@ data_max = np.array(scaler_params["data_max"])
 # Đã sửa lại mặc định là 0 vì features[0] đang giữ giá trị mem.percent
 target_idx = scaler_params.get("target_idx", 0)
 
-# Danh sách trắng (Whitelist) - Đã bổ sung các tiến trình lõi để không đơ UI
 WHITELIST = [
     'code', 'idea', 'java', 'node', 'gnome-terminal',
     'bash', 'systemd', 'Xorg', 'python3',
@@ -67,10 +68,31 @@ def get_numerical_features():
 # ---------------------------------------------------------
 def drop_caches():
     print("[CẢNH BÁO LEVEL 1] RAM có dấu hiệu tăng cao. Đang dọn dẹp Cache...")
-    os.system("sync; echo 1 > /proc/sys/vm/drop_caches")
+    try:
+        os.system("sync; echo 1 > /proc/sys/vm/drop_caches")
+    except:
+        pass
+
+def get_foreground_pid():
+    # Nhận diện PID của cửa sổ ứng dụng người dùng đang tương tác
+    try:
+        sys_os = platform.system()
+        if sys_os == 'Windows':
+            import ctypes
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            pid = ctypes.c_ulong()
+            ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            return int(pid.value)
+        elif sys_os == 'Linux':
+            output = subprocess.check_output(['xdotool', 'getactivewindow', 'getwindowpid'], stderr=subprocess.DEVNULL)
+            return int(output.strip())
+    except Exception:
+        return -1
+    return -1
 
 def smooth_throttling():
-    print("[CẢNH BÁO LEVEL 2] Dự đoán RAM sắp cạn kiệt. Kích hoạt Kill Switch...")
+    print("[CẢNH BÁO LEVEL 2] Dự đoán RAM sắp cạn kiệt. Kích hoạt Khoá an toàn...")
+    active_pid = get_foreground_pid()
     processes = []
     for proc in psutil.process_iter(['pid', 'name', 'memory_percent']):
         try:
@@ -83,6 +105,11 @@ def smooth_throttling():
     
     frozen_count = 0
     for proc in processes:
+        # BỎ QUA nếu đây là ứng dụng người dùng đang mở sáng nhất (Foreground)
+        if proc['pid'] == active_pid:
+            print(f"🛡️ BỎ QUA (Context-aware): Bảo vệ phần mềm đang dùng - {proc['name']} (PID: {proc['pid']})")
+            continue
+            
         if proc['name'] not in WHITELIST:
             try:
                 os.kill(proc['pid'], signal.SIGSTOP)
@@ -106,27 +133,24 @@ while True:
             
         if len(ram_history) == TIME_STEPS:
             history_matrix = np.array(ram_history)
-            
-            # Kỹ thuật Forward Transform (Chuẩn hóa thủ công)
+
             epsilon = 1e-8
             scaled_matrix = (history_matrix - data_min) / (data_max - data_min + epsilon)
             
             input_data = scaled_matrix.reshape(1, TIME_STEPS, FEATURE_COUNT)
             pred_scaled = model.predict(input_data, verbose=0)
-            
-            # Kỹ thuật Inverse Transform (Giải chuẩn hóa thủ công)
+
             pred_ram = pred_scaled[0][0] * (data_max[target_idx] - data_min[target_idx]) + data_min[target_idx]
             
             print(f"RAM hiện tại: {current_features[target_idx]:.1f}% | Dự đoán tương lai: {pred_ram:.1f}%")
-            
-            # Sanity Check (Kiểm tra chéo) để chống chém nhầm
+
             if pred_ram >= 80.0 and current_features[target_idx] >= 50.0:
                 smooth_throttling()
                 time.sleep(15) 
             elif pred_ram >= 70.0 and current_features[target_idx] >= 40.0:
                 drop_caches()
                 
-        time.sleep(2) # Lấy mẫu mỗi 2 giây thay vì 5 giây để siêu nhạy
+        time.sleep(2)
         
     except Exception as e:
         print(f"Lỗi vòng lặp: {e}")
